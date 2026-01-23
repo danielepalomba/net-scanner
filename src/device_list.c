@@ -36,7 +36,7 @@ DeviceNode* find_device(unsigned char *mac){
 void load_whitelist() {
     FILE *f = fopen(WHITELIST_FILE, "r");
     if (!f) {
-        printf("\033[1;31m[!] Errore: File %s not found.\033[0m\n", WHITELIST_FILE);
+        printf("\033[1;31m[!] Error: File %s not found.\033[0m\n", WHITELIST_FILE);
         return;
     }
 

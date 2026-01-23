@@ -1,7 +1,7 @@
 #ifndef OUI_RECORD
 #define OUI_RECORD
 
-#define MAX_OUI_ENTRIES 40000
+#define MAX_OUI_ENTRIES 40000 /* Based on the vendor size list */
 #define MAX_VENDOR_LEN 64
 
 typedef struct {
@@ -10,7 +10,6 @@ typedef struct {
 }OUI_record;
 
 int oui_record_load_db(const char *filename);
-
 const char* oui_record_get_vendor_by_mac(const char *mac_str);
 
 #endif

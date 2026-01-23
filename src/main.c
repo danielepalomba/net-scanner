@@ -15,7 +15,7 @@
         u_short ether_type;
     };
 
-    /* Flat structure to match Unix definition access */
+    /* flat structure to match Unix definition access */
     struct ether_arp {
         u_short ar_hrd;
         u_short ar_pro;
@@ -76,30 +76,30 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
         struct ether_arp *arp_header;
         arp_header = (struct ether_arp *) (packet + sizeof(struct ether_header));
          
-        //Check if the device is alredy present into the list
+        /* check if the device is alredy present into the list */
         DeviceNode *device = find_device(arp_header->arp_sha);
         
-        // Stringa MAC per log
+        /* MAC string */
         char mac_str[18];
         snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
                  arp_header->arp_sha[0], arp_header->arp_sha[1],
                  arp_header->arp_sha[2], arp_header->arp_sha[3],
                  arp_header->arp_sha[4], arp_header->arp_sha[5]);
        
-        //vendor name lookup
+        /* vendor name lookup */
         const char *vendor_name = oui_record_get_vendor_by_mac(mac_str);
         
-        if (device != NULL) { //already in RAM
+        if (device != NULL) { /* already in RAM */
              
             device->last_seen = time(NULL);
 
             memcpy(device->ip, arp_header->arp_spa, 4);
 
-            if (!device->is_trusted) { /* Not authorized but already discovered */
-              //printf("[ALERT REPEAT] Not authorized device is alredy talking!\n");
+            if (!device->is_trusted) { /* not authorized but already discovered */
+              
             }
 
-        } else { //new device
+        } else { /* new device */
             
             if (LEARNING_MODE) {
                 
@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     bpf_u_int32 mask;          // subnet mask
     bpf_u_int32 net;           // ip addr
     
-    //load vendors name from file
+    /* load vendors name from file */
     if(!oui_record_load_db("oui.csv")){
       fprintf(stderr, RED "[WARNING]" RESET " Cannot load oui.csv. Vendor resolution disabled.\n");
     }
@@ -158,27 +158,27 @@ int main(int argc, char *argv[]) {
 
     printf("Listening to: %s\n", device);
 
-    // obtain ip and mask of the network (needed for filter)
+    /* obtain ip and mask of the network (needed for filter) */
     if (pcap_lookupnet(device, &net, &mask, errbuf) == -1) {
         fprintf(stderr, "Could not obtain a netmask %s: %s\n", device, errbuf);
         net = 0;
         mask = 0;
     }
 
-    // open the session
+    /* open the session */
     handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
         fprintf(stderr, "Could not open the selected interface %s: %s\n", device, errbuf);
         return 2;
     }
 
-    // compile the arp filter
+    /* compile the arp filter */
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
         fprintf(stderr, "Could not parse arp filter %s: %s\n", filter_exp, pcap_geterr(handle));
         return 2;
     }
 
-    // apply arp filter
+    /* apply arp filter */
     if (pcap_setfilter(handle, &fp) == -1) {
         fprintf(stderr, "Could not install arp filter %s: %s\n", filter_exp, pcap_geterr(handle));
         return 2;
