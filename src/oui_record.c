@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include "logger.h"
 #include "oui_record.h"
 
 static OUI_record oui_db[MAX_OUI_ENTRIES];
@@ -27,7 +28,7 @@ int oui_record_load_db(const char *filename){
   FILE *fd = fopen(filename, "r");
   
   if(!fd){
-    perror("[OUI] Could not open file!\n");
+    logger_log(LOG_ERR, "Could not open OUI file");
     return 0;
   }
 
@@ -52,7 +53,7 @@ int oui_record_load_db(const char *filename){
   }
   
   fclose(fd);
-  printf("[OUI] DB loading is: ok\n");
+  logger_log(LOG_INFO,"Vendors names loaded");
   return 1;
 }
 

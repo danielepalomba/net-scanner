@@ -2,43 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <signal.h>
 
-#ifdef _WIN32
-    #include <winsock2.h>
-    #include <windows.h>
-    #include <pcap.h>
-    #define ETHERTYPE_ARP 0x0806
-
-    struct ether_header {
-        u_char  ether_dhost[6];
-        u_char  ether_shost[6];
-        u_short ether_type;
-    };
-
-    struct ether_arp {
-        u_short ar_hrd;
-        u_short ar_pro;
-        u_char  ar_hln;
-        u_char  ar_pln;
-        u_short ar_op;
-        u_char  arp_sha[6];
-        u_char  arp_spa[4];
-        u_char  arp_tha[6];
-        u_char  arp_tpa[4];
-    };
-#else
-    #include <pcap.h>
-    #include <arpa/inet.h>
-    #include <net/ethernet.h>
-    #include <netinet/if_ether.h>
-#endif
+#include <pcap.h>
+#include <arpa/inet.h>
+#include <net/ethernet.h>
+#include <netinet/if_ether.h>
 
 #include "device_list.h"
 #include "oui_record.h"
 #include "tcolor.h"
+#include "logger.h"
 
 int LEARNING_MODE = 0;
 DeviceManager* net_manager = NULL;
+pcap_t *handle = NULL;
 
 /*
  * ARP PACKET (42 Bytes total)
@@ -58,6 +36,10 @@ DeviceManager* net_manager = NULL;
  * +-----------------------+-----------------------------------+
  */
 
+void signal_handler(int sig) {
+    logger_log(LOG_INFO, "Received closing signal (%d)...", sig);
+    if (handle) pcap_breakloop(handle);
+}
 
 /*
  * It handles raw packets, extracts information from them, and checks whether the device associated with the newly obtained data is present
@@ -115,15 +97,22 @@ void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char
 
 int main(int argc, char *argv[]) {
     char *device = NULL;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle;
+    char errbuf[PCAP_ERRBUF_SIZE]; 
     struct bpf_program fp;
     char filter_exp[] = "arp";
     bpf_u_int32 mask;
     bpf_u_int32 net;
+    
+    if(!logger_init("events.log")){
+      fprintf(stderr, "Could not initialize logger file\n");
+      return 1;
+    } 
+
+    signal(SIGINT, signal_handler);
+
 
     if (!oui_record_load_db("oui.csv")) {
-      fprintf(stderr, RED "[WARNING]" RESET " Failed to load oui.csv.\n");
+      logger_log(LOG_WARN, "Could not load oui.csv file.");
     }
 
     net_manager = dm_create("whitelist.txt");
@@ -131,7 +120,7 @@ int main(int argc, char *argv[]) {
     if (argc == 1) {
         device = pcap_lookupdev(errbuf);
         if (device == NULL) {
-            fprintf(stderr, "No interface found: %s\n", errbuf);
+            logger_log(LOG_ERR, "No interface founded: %s", errbuf);
             return 2;
         }
         dm_load_whitelist(net_manager); 
@@ -141,11 +130,11 @@ int main(int argc, char *argv[]) {
         
         if (argc == 3 && strcmp(argv[2], "--learn") == 0) {
             LEARNING_MODE = 1;
-            printf("Running in LEARNING MODE. Press CTRL+C to stop.\n");
+            logger_log(LOG_INFO, "Learning mode is active | Press Ctrl+c to exit.");
         }
     }
 
-    printf("Listening on: %s\n", device);
+    logger_log(LOG_INFO, "Starting net-scanner...");
 
     if (pcap_lookupnet(device, &net, &mask, errbuf) == -1) {
         net = 0; mask = 0;
@@ -153,24 +142,27 @@ int main(int argc, char *argv[]) {
 
     handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        fprintf(stderr, "Error opening device %s: %s\n", device, errbuf);
+        logger_log(LOG_ERR, "Could not open device %s : %s", device, errbuf);
         return 2;
     }
 
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-        fprintf(stderr, "Error parsing filter: %s\n", pcap_geterr(handle));
+       logger_log(LOG_ERR, "Filter error: %s", pcap_geterr(handle));
         return 2;
     }
 
     if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "Error installing filter: %s\n", pcap_geterr(handle));
+       logger_log(LOG_ERR, "Could not install filter: %s", pcap_geterr(handle));
         return 2;
     }
+
+    printf(CYAN "Sniffing ARP packets...\n" RESET);  
     
     pcap_loop(handle, -1, packet_handler, NULL);
 
     pcap_close(handle);
     dm_destroy(net_manager);
+    logger_close();
     
     return 0;
 }
