@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
     #include <winsock2.h>
     #include <windows.h>
     #include <pcap.h>
-    
     #define ETHERTYPE_ARP 0x0806
 
     struct ether_header {
@@ -15,7 +15,6 @@
         u_short ether_type;
     };
 
-    /* flat structure to match Unix definition access */
     struct ether_arp {
         u_short ar_hrd;
         u_short ar_pro;
@@ -35,10 +34,11 @@
 #endif
 
 #include "device_list.h"
-#include "tcolor.h"
 #include "oui_record.h"
+#include "tcolor.h"
 
 int LEARNING_MODE = 0;
+DeviceManager* net_manager = NULL;
 
 /*
  * ARP PACKET (42 Bytes total)
@@ -64,129 +64,113 @@ int LEARNING_MODE = 0;
  * in the list. If it isn't, it adds it.
  */
 void packet_handler(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
-    
-    /* cast to ether_header */
-    struct ether_header *eth_header;
-    eth_header = (struct ether_header *) packet;
+    struct ether_header *eth_header = (struct ether_header *) packet;
 
-    /* check [FRAME_TYPE] -> 0x0806 for ARP pkt */
     if (ntohs(eth_header->ether_type) == ETHERTYPE_ARP) {
+        struct ether_arp *arp_header = (struct ether_arp *) (packet + sizeof(struct ether_header));
         
-        /* cast to arp_header [ether_header](14 bytes) [ARP pkt](28 bytes) */  
-        struct ether_arp *arp_header;
-        arp_header = (struct ether_arp *) (packet + sizeof(struct ether_header));
-         
-        /* check if the device is alredy present into the list */
-        DeviceNode *device = find_device(arp_header->arp_sha);
-        
-        /* MAC string */
         char mac_str[18];
         snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
                  arp_header->arp_sha[0], arp_header->arp_sha[1],
                  arp_header->arp_sha[2], arp_header->arp_sha[3],
                  arp_header->arp_sha[4], arp_header->arp_sha[5]);
-       
-        /* vendor name lookup */
+
+        // OUI Lookup
         const char *vendor_name = oui_record_get_vendor_by_mac(mac_str);
-        
-        if (device != NULL) { /* already in RAM */
-             
-            device->last_seen = time(NULL);
 
-            memcpy(device->ip, arp_header->arp_spa, 4);
+        // Devide Mananger Lookup
+        DeviceEntry *device = dm_lookup(net_manager, arp_header->arp_sha);
 
-            if (!device->is_trusted) { /* not authorized but already discovered */
-              
+        if (device != NULL) { //Already in memory device, we only update his status
+            
+            device_update_last_seen(device);
+            device_update_ip(device, arp_header->arp_spa);
+
+            if (!device_is_trusted(device)) {
+                 //Unknown device but already discovered
             }
 
-        } else { /* new device */
-            
+        } else { 
+            // New device
             if (LEARNING_MODE) {
-                
-                printf(GREEN "[NEW]" RESET " New device founded -> adding to list... %s\n", mac_str);
+                printf(GREEN "[NEW]" RESET " Adding trusted device...\n");
                 printf("      MAC: %s (%s)\n", mac_str, vendor_name);
-
-                add_device(arp_header->arp_sha, arp_header->arp_spa, 1); // 1 = Trusted
-                save_to_whitelist(mac_str);
-            } else {
                 
-                printf(RED "\n[ALERT]" RESET " Not authorized device was found!\n");
+                dm_add_device(net_manager, arp_header->arp_sha, arp_header->arp_spa, true);
+                dm_add_to_whitelist_file(net_manager, mac_str);
+
+            } else {
+                printf(RED "\n[ALERT]" RESET " Unauthorized device found!\n");
                 printf("MAC: " CYAN "%s" RESET " [%s]\n", mac_str, vendor_name);
                 printf("IP : %d.%d.%d.%d\n", 
                        arp_header->arp_spa[0], arp_header->arp_spa[1],
                        arp_header->arp_spa[2], arp_header->arp_spa[3]);
                 
-                //save into RAM as not authorized
-                add_device(arp_header->arp_sha, arp_header->arp_spa, 0); // 0 = Untrusted  
+                // Add as untrusted device
+                dm_add_device(net_manager, arp_header->arp_sha, arp_header->arp_spa, false);
             }
         }
     }
 }
 
-/* Works passively */
 int main(int argc, char *argv[]) {
-    char *device;              // interface name
-    char errbuf[PCAP_ERRBUF_SIZE]; // err buff
-    pcap_t *handle;            // session sniffing handler 
-    struct bpf_program fp;     // compiled filter
-    char filter_exp[] = "arp"; // kernel arp filter
-    bpf_u_int32 mask;          // subnet mask
-    bpf_u_int32 net;           // ip addr
-    
-    /* load vendors name from file */
-    if(!oui_record_load_db("oui.csv")){
-      fprintf(stderr, RED "[WARNING]" RESET " Cannot load oui.csv. Vendor resolution disabled.\n");
+    char *device = NULL;
+    char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_t *handle;
+    struct bpf_program fp;
+    char filter_exp[] = "arp";
+    bpf_u_int32 mask;
+    bpf_u_int32 net;
+
+    if (!oui_record_load_db("oui.csv")) {
+      fprintf(stderr, RED "[WARNING]" RESET " Failed to load oui.csv.\n");
     }
+
+    net_manager = dm_create("whitelist.txt");
 
     if (argc == 1) {
         device = pcap_lookupdev(errbuf);
         if (device == NULL) {
-            fprintf(stderr, "Could not find a valid interface: %s\n", errbuf);
+            fprintf(stderr, "No interface found: %s\n", errbuf);
             return 2;
         }
-    } else if (argc == 2){
+        dm_load_whitelist(net_manager); 
+    } else if (argc >= 2) {
         device = argv[1];
-        load_whitelist();
-    } else if (argc == 3 && strcmp(argv[2], "--learn") == 0){
-      LEARNING_MODE = 1;
-      printf("Scanner starting in learning mode...\n");
-      printf("All new devices will be added to the whitelist\n");
-      printf("Press CTRL+c to stop!\n");
-      
-      device = argv[1];
+        dm_load_whitelist(net_manager);
+        
+        if (argc == 3 && strcmp(argv[2], "--learn") == 0) {
+            LEARNING_MODE = 1;
+            printf("Running in LEARNING MODE. Press CTRL+C to stop.\n");
+        }
     }
 
-    printf("Listening to: %s\n", device);
+    printf("Listening on: %s\n", device);
 
-    /* obtain ip and mask of the network (needed for filter) */
     if (pcap_lookupnet(device, &net, &mask, errbuf) == -1) {
-        fprintf(stderr, "Could not obtain a netmask %s: %s\n", device, errbuf);
-        net = 0;
-        mask = 0;
+        net = 0; mask = 0;
     }
 
-    /* open the session */
     handle = pcap_open_live(device, BUFSIZ, 1, 1000, errbuf);
     if (handle == NULL) {
-        fprintf(stderr, "Could not open the selected interface %s: %s\n", device, errbuf);
+        fprintf(stderr, "Error opening device %s: %s\n", device, errbuf);
         return 2;
     }
 
-    /* compile the arp filter */
     if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1) {
-        fprintf(stderr, "Could not parse arp filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        fprintf(stderr, "Error parsing filter: %s\n", pcap_geterr(handle));
         return 2;
     }
 
-    /* apply arp filter */
     if (pcap_setfilter(handle, &fp) == -1) {
-        fprintf(stderr, "Could not install arp filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        fprintf(stderr, "Error installing filter: %s\n", pcap_geterr(handle));
         return 2;
     }
     
     pcap_loop(handle, -1, packet_handler, NULL);
 
     pcap_close(handle);
+    dm_destroy(net_manager);
     
-  return 0;
+    return 0;
 }

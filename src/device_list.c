@@ -1,82 +1,134 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
 #include "device_list.h"
 
-DeviceNode *device_list_head = NULL;
+struct DeviceEntry {
+    uint8_t mac[6];
+    uint8_t ip[4];
+    time_t last_seen;
+    bool is_trusted;
+    struct DeviceEntry *next;
+};
 
-void add_device(unsigned char *mac, unsigned char *ip_bytes, int is_trusted){
-  DeviceNode *new = (DeviceNode*)malloc(sizeof(DeviceNode));
-  
-  if(new == NULL){
-    fprintf(stderr, "Could not allocate memory for a new DeviceNode\n");
-    exit(1);
-  }
+struct DeviceManager {
+    struct DeviceEntry *head;
+    char whitelist_file[256];
+};
 
-  memcpy(new->mac,mac,6);
-  sprintf(new->ip, "%d.%d.%d.%d", ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]);
-
-  new->last_seen = time(NULL);
-  new->is_trusted = is_trusted;
-  new->next = device_list_head;
-  device_list_head = new;
-
-  //printf("Added to list -> ip: %s - mac (last digit) :%02x\n", new->ip, new->mac[5]); 
+static int parse_mac(const char* str, uint8_t* mac_out) {
+    int values[6];
+    if (sscanf(str, "%x:%x:%x:%x:%x:%x", 
+        &values[0], &values[1], &values[2], 
+        &values[3], &values[4], &values[5]) == 6) {
+        for(int i=0; i<6; i++) mac_out[i] = (uint8_t)values[i];
+        return 1;
+    }
+    return 0;
 }
 
-DeviceNode* find_device(unsigned char *mac){
-  DeviceNode *curr = device_list_head;
-
-  while(curr != NULL){
-    if(memcmp(curr->mac, mac, 6)==0){
-      return curr;
-    }
-    curr = curr->next;
-  }
-  return NULL;
-}
-
-void load_whitelist() {
-    FILE *f = fopen(WHITELIST_FILE, "r");
-    if (!f) {
-        printf("\033[1;31m[!] Error: File %s not found.\033[0m\n", WHITELIST_FILE);
-        return;
-    }
-
-    char line[64];
-    u_char mac_bytes[6];
-    u_char dummy_ip[4] = {0,0,0,0};
-    int count = 0;
-
-    printf("\n\033[1;36m       TRUSTED MAC ADDRESSES\033[0m\n");
-    printf("==========================================================================\n");
-
-    while (fgets(line, sizeof(line), f)) {
-        int values[6];
-        
-        if (sscanf(line, "%x:%x:%x:%x:%x:%x", 
-            &values[0], &values[1], &values[2], 
-            &values[3], &values[4], &values[5]) == 6) {
-            
-            for(int i=0; i<6; i++) mac_bytes[i] = (u_char)values[i];
-
-            add_device(mac_bytes, dummy_ip, 1);
-            count++;
-
-            printf("  \033[1;32m•\033[0m  %02x:%02x:%02x:%02x:%02x:%02x\n",
-                   mac_bytes[0], mac_bytes[1], mac_bytes[2], 
-                   mac_bytes[3], mac_bytes[4], mac_bytes[5]);
+DeviceManager* dm_create(const char* whitelist_filename) {
+    DeviceManager* dm = malloc(sizeof(DeviceManager));
+    if (dm) {
+        dm->head = NULL;
+        if (whitelist_filename) {
+            strncpy(dm->whitelist_file, whitelist_filename, sizeof(dm->whitelist_file) - 1);
+        } else {
+            dm->whitelist_file[0] = '\0';
         }
     }
-    
-    printf("==========================================================================\n");
-    printf(" Tot in whitelist: %d\n\n", count);
-
-    fclose(f);
+    return dm;
 }
 
-void save_to_whitelist(const char *mac_str) {
-    FILE *f = fopen(WHITELIST_FILE, "a");
+void dm_destroy(DeviceManager* dm) {
+    if (!dm) return;
+    DeviceEntry *current = dm->head;
+    while (current != NULL) {
+        DeviceEntry *next = current->next;
+        free(current);
+        current = next;
+    }
+    free(dm);
+}
+
+DeviceEntry* dm_lookup(DeviceManager* dm, const uint8_t* mac) {
+    DeviceEntry* current = dm->head;
+    while (current != NULL) {
+        if (memcmp(current->mac, mac, 6) == 0) {
+            return current;
+        }
+        current = current->next;
+    }
+    return NULL;
+}
+
+DeviceEntry* dm_add_device(DeviceManager* dm, const uint8_t* mac, const uint8_t* ip, bool is_trusted) {
+    DeviceEntry* existing = dm_lookup(dm, mac);
+    if (existing) return existing;
+
+    DeviceEntry* new_node = malloc(sizeof(DeviceEntry));
+    if (!new_node) return NULL;
+
+    memcpy(new_node->mac, mac, 6);
+    if (ip) memcpy(new_node->ip, ip, 4);
+    else memset(new_node->ip, 0, 4);
+    
+    new_node->last_seen = time(NULL);
+    new_node->is_trusted = is_trusted;
+    
+    new_node->next = dm->head;
+    dm->head = new_node;
+    
+    return new_node;
+}
+
+void dm_load_whitelist(DeviceManager* dm) {
+    if (!dm || strlen(dm->whitelist_file) == 0) return;
+
+    FILE *f = fopen(dm->whitelist_file, "r");
+    if (!f) return; 
+
+    char line[64];
+    uint8_t mac_bin[6];
+
+    while (fgets(line, sizeof(line), f)) {
+        
+        line[strcspn(line, "\r\n")] = 0;
+        
+        if (parse_mac(line, mac_bin)) {
+            dm_add_device(dm, mac_bin, NULL, true);
+        }
+    }
+    fclose(f);
+    printf("[INFO] Whitelist loaded.\n");
+}
+
+void dm_add_to_whitelist_file(DeviceManager* dm, const char* mac_str) {
+    if (!dm || strlen(dm->whitelist_file) == 0) return;
+
+    FILE *f = fopen(dm->whitelist_file, "a");
     if (f) {
         fprintf(f, "%s\n", mac_str);
         fclose(f);
-        printf("[LEARN] Saved: %s\n", mac_str);
     }
+}
+
+bool device_is_trusted(DeviceEntry* device) {
+    return device ? device->is_trusted : false;
+}
+
+void device_update_last_seen(DeviceEntry* device) {
+    if (device) device->last_seen = time(NULL);
+}
+
+void device_update_ip(DeviceEntry* device, const uint8_t* new_ip) {
+    if (device && new_ip) memcpy(device->ip, new_ip, 4);
+}
+
+void device_get_mac_str(DeviceEntry* device, char* buffer, size_t size) {
+    if (!device || size < 18) return;
+    snprintf(buffer, size, "%02x:%02x:%02x:%02x:%02x:%02x",
+        device->mac[0], device->mac[1], device->mac[2],
+        device->mac[3], device->mac[4], device->mac[5]);
 }
