@@ -24,7 +24,7 @@ endif
 
 TARGET := $(TARGET_NAME)
 
-CFLAGS := -Wall -Wextra -std=gnu11 -I$(INCDIR) $(CFLAGS_OS)
+CFLAGS := -Wall -Wextra -std=gnu11 -pthread -I$(INCDIR) $(CFLAGS_OS)
 
 DEBUG_FLAGS := -g -O0
 RELEASE_FLAGS := -O2
