@@ -22,8 +22,6 @@ Typically, eth0 for Ethernet or wlo1 for WiFi network interfaces.
 
 ---
 
-On first launch, you should run the program in **learning mode**. This mode generates a *MAC address whitelist*. After that, you can simply run the program in standard mode, and all devices not on the whitelist will be displayed. Specifically, the MAC address, vendor, and IP address will be displayed.
+The program supports two different modes: *Standard* or *AI-driven*. In standard mode, after a learning phase that generates a whitelist of allowed devices, the program performs simple intrusion monitoring. In AI-driven mode, the program is capable of detecting: *ARP Flooding (Denial of Service), ARP Spoofing (Man-in-the-middle), and network scans with nmap*...but we're still working on this :)
 
 ---
-
-Works in progress...
