@@ -7,6 +7,8 @@
 
 #include <pcap.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+#include <sys/socket.h>
 #include <net/ethernet.h>
 #include <netinet/if_ether.h>
 
@@ -15,6 +17,9 @@
 #include "tcolor.h"
 #include "logger.h"
 #include "packet_queue.h"
+
+#define SERVER_IP "127.0.0.1"
+#define SERVER_PORT 7777
 
 // Globals
 int LEARNING_MODE = 0;
@@ -103,6 +108,30 @@ void fast_packet_handler(u_char *args, const struct pcap_pkthdr *header, const u
 void *consumer_routine(void *arg) {
     ArpPacketData pkt;
     char mac_str[18];
+    int sock_fd = -1;
+    struct sockaddr_in serv_addr;
+
+    // Socket
+    if ((sock_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        logger_log(LOG_ERR, "Could not create socket");
+    } else {
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons(SERVER_PORT);
+
+        if (inet_pton(AF_INET, SERVER_IP, &serv_addr.sin_addr) <= 0) {
+            logger_log(LOG_ERR, "Invalid address");
+            close(sock_fd);
+            sock_fd = -1;
+        } else {
+            if (connect(sock_fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+                logger_log(LOG_WARN, "Connection Failed to AI Engine");
+                close(sock_fd);
+                sock_fd = -1; 
+            } else {
+                logger_log(LOG_INFO, "Connected to AI Engine");
+            }
+        }
+    }
 
     while (queue_pop(&packet_queue, &pkt)) {
         
@@ -117,10 +146,8 @@ void *consumer_routine(void *arg) {
             device_update_last_seen(device);
             device_update_ip(device, pkt.src_ip);
             
-            // Anomaly detection...
-            
             if (!device_is_trusted(device)) {
-                 logger_log(LOG_WARN, "ALERT: Intruso attivo! MAC: %s", mac_str);
+                 logger_log(LOG_WARN, "Unknown device active! MAC: %s", mac_str);
             }
         } else { 
             if (LEARNING_MODE) {
@@ -128,13 +155,28 @@ void *consumer_routine(void *arg) {
                 dm_add_device(net_manager, pkt.src_mac, pkt.src_ip, true);
                 dm_add_to_whitelist_file(net_manager, mac_str);
             } else {
-                logger_log(LOG_ERR, "ALERT: New Intruder! %s [%s]", mac_str, vendor_name);
+                logger_log(LOG_ERR, "New Intruder! %s [%s]", mac_str, vendor_name);
                 dm_add_device(net_manager, pkt.src_mac, pkt.src_ip, false);
-                
-                // IPC Send
+            }
+        }
+
+        if (sock_fd >= 0) {
+            char data_buffer[128];
+            // TIMESTAMP,MAC,IP (csv format)
+            snprintf(data_buffer, sizeof(data_buffer), "%ld,%s,%d.%d.%d.%d\n", 
+                     time(NULL), 
+                     mac_str, 
+                     pkt.src_ip[0], pkt.src_ip[1], pkt.src_ip[2], pkt.src_ip[3]);
+            
+            if (send(sock_fd, data_buffer, strlen(data_buffer), 0) < 0) {
+                logger_log(LOG_ERR, "Failed to send packet to AI (Disconnecting)");
+                close(sock_fd);
+                sock_fd = -1; 
             }
         }
     }
+    
+    if (sock_fd >= 0) close(sock_fd);
     return NULL;
 }
 
