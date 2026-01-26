@@ -142,31 +142,38 @@ void *consumer_routine(void *arg) {
         const char *vendor_name = oui_record_get_vendor_by_mac(mac_str);
         DeviceEntry *device = dm_lookup(net_manager, pkt.src_mac);
 
+        int is_trusted = 0;
+
         if (device != NULL) { 
             device_update_last_seen(device);
             device_update_ip(device, pkt.src_ip);
             
             if (!device_is_trusted(device)) {
                  logger_log(LOG_WARN, "Unknown device active! MAC: %s", mac_str);
+            }else{
+              is_trusted = 1;
             }
         } else { 
             if (LEARNING_MODE) {
                 logger_log(LOG_INFO, "New Device (Learning): %s [%s]", mac_str, vendor_name);
                 dm_add_device(net_manager, pkt.src_mac, pkt.src_ip, true);
                 dm_add_to_whitelist_file(net_manager, mac_str);
+                is_trusted = 1;
             } else {
                 logger_log(LOG_ERR, "New Intruder! %s [%s]", mac_str, vendor_name);
                 dm_add_device(net_manager, pkt.src_mac, pkt.src_ip, false);
+                is_trusted = 0;
             }
         }
 
         if (sock_fd >= 0) {
             char data_buffer[128];
-            // TIMESTAMP,MAC,IP (csv format)
-            snprintf(data_buffer, sizeof(data_buffer), "%ld,%s,%d.%d.%d.%d\n", 
+            // TIMESTAMP,MAC,IP,IS_TRUSTED (csv format)
+            snprintf(data_buffer, sizeof(data_buffer), "%ld,%s,%d.%d.%d.%d,%d\n", 
                      time(NULL), 
                      mac_str, 
-                     pkt.src_ip[0], pkt.src_ip[1], pkt.src_ip[2], pkt.src_ip[3]);
+                     pkt.src_ip[0], pkt.src_ip[1], pkt.src_ip[2], pkt.src_ip[3],
+                     is_trusted);
             
             if (send(sock_fd, data_buffer, strlen(data_buffer), 0) < 0) {
                 logger_log(LOG_ERR, "Failed to send packet to AI (Disconnecting)");
@@ -201,6 +208,7 @@ int main(int argc, char *argv[]) {
     }
 
     net_manager = dm_create("whitelist.txt");
+    dm_load_whitelist(net_manager);
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--learn") == 0) {
