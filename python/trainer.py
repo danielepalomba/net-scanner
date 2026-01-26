@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 import joblib
 from collections import defaultdict
-
+from colorama import Fore, Back, Style
 
 def extract_features(df):
     """
@@ -12,10 +12,10 @@ def extract_features(df):
     1. Data preparation -> all packets are sorted chronologically.
 
     2. Memory -> a dictionary is created that tracks the state of each device, for each MAC, remembers last_ts
-    (when it sent the last packet), count_window (list of all packets sent in the last 60 seconds). Is also mantained a global frequency. 
+    (when it sent the last packet), count_window (list of all packets sent in the last 60 seconds). Is also mantained a global frequency.
 
-    3. Global Frequency -> calculates how many packets globally. 
-    
+    3. Global Frequency -> calculates how many packets globally.
+
     4. Delta-Time -> measures how quickly the device sends packets.
 
     5. Local Frequency -> calculates how many packets it sent in the last minute.
@@ -58,7 +58,7 @@ def extract_features(df):
     return np.array(feature_list)
 
 
-print("Loading dataset...")
+print(Style.BRIGHT + Fore.BLACK + Back.GREEN + "Loading dataset...")
 df = pd.read_csv('dataset.csv')
 
 print(f"Extracting features from {len(df)} packets...")

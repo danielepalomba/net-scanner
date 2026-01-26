@@ -1,21 +1,22 @@
 import requests
 import re
 import csv
+from colorama import Fore, Back, Style
 
 # URL IEEE
 URL = "http://standards-oui.ieee.org/oui.txt"
 OUTPUT_FILE = "oui.csv"
 
 def download_and_parse():
-    print(f"Downloading database from {URL}...")
+    print(Style.BRIGHT + Fore.BLACK + Back.YELLOW + f"Downloading database from {URL}...")
     try:
         response = requests.get(URL)
         response.raise_for_status()
     except Exception as e:
-        print(f"Error: {e}")
+        print(Back.RED + f"Error: {e}")
         return
 
-    print("Download completed. I'm now refactoring the data...")
+    print(Back.YELLOW + "Download completed. I'm now refactoring the data...")
     
     regex = re.compile(r'^([0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2})\s+\(hex\)\s+(.*)$', re.MULTILINE)
     
@@ -37,7 +38,7 @@ def download_and_parse():
             writer.writerow([clean_mac, clean_company])
             count += 1
 
-    print(f"DONE! {count} vendor saved into '{OUTPUT_FILE}'.")
+    print(Back.GREEN + f"DONE! {count} vendor saved into '{OUTPUT_FILE}'.")
 
 if __name__ == "__main__":
     download_and_parse()

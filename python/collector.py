@@ -1,5 +1,6 @@
 import socket
 import csv
+from colorama import Fore, Back, Style
 
 HOST = '127.0.0.1'
 PORT = 7777
@@ -20,7 +21,7 @@ def arp_collector():
     server.bind((HOST, PORT))
     server.listen(1)
 
-    print(f"[*] Collector listening on {HOST}:{PORT}. (Be sure that the sniffer is running.)")
+    print(Style.BRIGHT + Fore.BLACK + Back.GREEN + f"[*] Collector listening on {HOST}:{PORT}. (Be sure that the sniffer is running.)")
     conn, addr = server.accept()
     print(f"[*] Connected: {addr}. Populating...")
 
@@ -39,10 +40,10 @@ def arp_collector():
                         with open(DATASET_FILE, 'a', newline='') as f:
                             csv.writer(f).writerow(parts)
     except KeyboardInterrupt:
-        print("\n[*] Exiting...")
+        print(Fore.BLACK + Back.YELLOW + "\n[*] Exiting...")
     finally:
         conn.close()
-        server.close();
+        server.close()
 
 
 if __name__ == "__main__":
