@@ -20,7 +20,7 @@ def extract_features(df):
 
     5. Local Frequency -> calculates how many packets it sent in the last minute.
 
-    6. Output -> matrix where each row represents a packet. For example, [0.04, 110].
+    6. Output -> matrix where each row represents a packet.
     """
 
     df = df.sort_values(by='timestamp')
