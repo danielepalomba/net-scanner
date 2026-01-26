@@ -13,9 +13,10 @@ def arp_collector():
     """
     with open(DATASET_FILE, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow(["timestamp", "mac", "ip"])
+        writer.writerow(["timestamp", "mac", "ip", "is_trusted"])
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1);
     server.bind((HOST, PORT))
     server.listen(1)
 
@@ -34,14 +35,14 @@ def arp_collector():
                 line, buffer = buffer.split('\n', 1)
                 if line:
                     parts = line.strip().split(',')
-                    if len(parts) == 3:
+                    if len(parts) >= 3:
                         with open(DATASET_FILE, 'a', newline='') as f:
                             csv.writer(f).writerow(parts)
-                            print(f"REC: {parts}", end='\r')
     except KeyboardInterrupt:
         print("\n[*] Exiting...")
     finally:
         conn.close()
+        server.close();
 
 
 if __name__ == "__main__":
