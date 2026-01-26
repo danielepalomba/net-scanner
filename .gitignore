@@ -57,3 +57,4 @@ dkms.conf
 whitelist.txt
 build/
 *.log
+app
