@@ -7,7 +7,7 @@ from scapy.layers.l2 import ARP, Ether
 
 TARGET_IP = ""  # <- IP (maybe Gateway)
 INTERFACE = ""  # <- Network interface
-FAKE_MAC = "de:ad:be:ef:00:01"  # <- Simulate and unknown device
+FAKE_MAC = "de:ad:be:ef:00:01"  # <- Simulate an unknown device
 
 # ---------------- We need to carry out an attack, right? ASCII art is essential to its success. :) ----------------
 
