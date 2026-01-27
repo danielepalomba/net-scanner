@@ -150,6 +150,7 @@ void *consumer_routine(void *arg) {
             
             if (!device_is_trusted(device)) {
                  logger_log(LOG_WARN, "Unknown device active! MAC: %s", mac_str);
+                 is_trusted = 0;
             }else{
               is_trusted = 1;
             }

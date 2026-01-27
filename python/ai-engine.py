@@ -75,7 +75,10 @@ def process_packet(mac, timestamp, is_trusted):
 
         else:
             if is_trusted == 0:
-                print(Style.BRIGHT + Fore.BLACK + Back.YELLOW + f"[INFO] New device: {mac}")
+                print(Style.BRIGHT + Fore.BLACK + Back.RED + f"\n[ALERT]")
+                print(Fore.YELLOW + Back.BLACK + f"      Source: {mac} (Not authorized)")
+                print(Fore.RED + f"      Type: Unknown MAC")
+                print(Fore.CYAN + f"      Score AI: {score:.3f}")
             else:
                 # All good
                 pass
