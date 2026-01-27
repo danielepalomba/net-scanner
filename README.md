@@ -36,7 +36,7 @@ After that, you have two options:
 
 - *Standard mode:* The scanner will perform a simple comparison between the MAC addresses received in the ARP packets and those present in the list, detecting any anomalies. No attacks other than simple anomalous MAC addresses will be detected!
 
-- *AI-Driven*: Once you've collected enough data and trained a sufficiently performant model on your network traffic, you can run the ai-engine.py script and then start the sniffer in AI mode. If the model has been trained well, it will be able to detect not only unknown MAC addresses, but also ARP Spoofing, massive scans with the *nmap* command, and MITM attacks.
+- *AI-Driven*: Once you've collected enough data and trained a sufficiently performant model on your network traffic, you can run the ai-engine.py script and then start the sniffer in AI mode. If the model has been trained well, it will be able to detect not only unknown MAC addresses, but also ARP flooding, massive scans with the *nmap* command, and MITM attacks.
 
 #### How to train the model?
 
