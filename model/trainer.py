@@ -26,34 +26,15 @@ def extract_features(df):
     df = df.sort_values(by='timestamp')
 
     feature_list = []
-
-    history = defaultdict(lambda: {'last_ts': 0, 'count_window': []})
-
-    global_window = []
+    
+    # Use the shared FeatureExtractor class
+    from features import FeatureExtractor
+    extractor = FeatureExtractor()
 
     for _, row in df.iterrows():
-        ts = int(row['timestamp'])
-        mac = row['mac']
-
-        global_window = [t for t in global_window if t > ts - 60]
-        global_window.append(ts)
-        global_freq = len(global_window)
-
-        state = history[mac]
-
-        if state['last_ts'] == 0:
-            delta = 1.0
-        else:
-            delta = ts - state['last_ts']
-            if delta == 0: delta = 0.01
-
-        state['last_ts'] = ts
-
-        state['count_window'] = [t for t in state['count_window'] if t > ts - 60]
-        state['count_window'].append(ts)
-        local_freq = len(state['count_window'])
-
-        feature_list.append([delta, local_freq, global_freq])
+        # process returns [[features]], we need just [features]
+        feats = extractor.process_row(row)[0] 
+        feature_list.append(feats)
 
     return np.array(feature_list)
 

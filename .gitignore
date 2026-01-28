@@ -58,3 +58,4 @@ whitelist.txt
 build/
 *.log
 app
+.idea/

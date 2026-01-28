@@ -46,6 +46,10 @@ After that, you have two options:
 4. You are **ready**, start the ai-engine and then the sniffer in ai-mode, any anomalies will be reported to you.
 
 ---
+
+![GUI_EXAMPLE](img/gui.png)
+
+---
 *N.B. This is a project created purely for learning purposes; it's not a precise tool, and there may be errors. If you find any, please let me know :)*
 
 
