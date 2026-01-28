@@ -22,6 +22,15 @@ static void extract_prefix(const char *mac_str, char *prefix_out){
 }
 
 /*
+ *  Compare function for qsort
+ */
+static int compare_oui_records(const void *a, const void *b) {
+    const OUI_record *ra = (const OUI_record *)a;
+    const OUI_record *rb = (const OUI_record *)b;
+    return strcmp(ra->prefix, rb->prefix);
+}
+
+/*
  *  Read the oui data from the file and insert all the value into oui_db struct.
  */
 int oui_record_load_db(const char *filename){
@@ -53,21 +62,36 @@ int oui_record_load_db(const char *filename){
   }
   
   fclose(fd);
-  logger_log(LOG_INFO,"Vendors names loaded");
+  
+  // Sort the database for binary search
+  qsort(oui_db, oui_count, sizeof(OUI_record), compare_oui_records);
+  
+  logger_log(LOG_INFO,"Vendors names loaded and sorted (%d entries)", oui_count);
   return 1;
 }
 
 /*
- *  Find a vendor into db, if does not exits, return Unknown, else the name of the vendor.
+ *  Find a vendor into db using binary search.
  */
 const char* oui_record_get_vendor_by_mac(const char *mac_str){
   char search_prefix[7];
   extract_prefix(mac_str, search_prefix);
 
-  for(int i = 0; i < oui_count; i++){
-    if(strcmp(oui_db[i].prefix, search_prefix) == 0){
-      return oui_db[i].vendor;
-    }
+  int left = 0;
+  int right = oui_count - 1;
+
+  while (left <= right) {
+      int mid = left + (right - left) / 2;
+      int cmp = strcmp(search_prefix, oui_db[mid].prefix);
+
+      if (cmp == 0) {
+          return oui_db[mid].vendor;
+      } else if (cmp < 0) {
+          right = mid - 1;
+      } else {
+          left = mid + 1;
+      }
   }
+
   return "Unknown";
 }
