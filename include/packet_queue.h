@@ -1,28 +1,25 @@
 #ifndef PACKET_QUEUE_H
 #define PACKET_QUEUE_H
 
-#include <stdint.h>
 #include <pthread.h>
+#include <stdint.h>
 
-typedef struct{
+typedef struct {
   uint8_t src_mac[6];
   uint8_t src_ip[4];
-}ArpPacketData;
+} ArpPacketData;
 
-typedef struct QueueNode{
-  ArpPacketData data;
-  struct QueueNode *next;
-}QueueNode;
-
-typedef struct{
-  QueueNode *head;
-  QueueNode *tail;
+// Ring Buffer implementation
+typedef struct {
+  ArpPacketData *buffer; // Dynamic array allocated at init
+  int head;              // Read index
+  int tail;              // Write index
   int count;
   int max_size;
   int finished;
   pthread_mutex_t mutex;
   pthread_cond_t cond;
-}PacketQueue;
+} PacketQueue;
 
 void queue_init(PacketQueue *q, int max_size);
 
