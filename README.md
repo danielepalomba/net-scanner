@@ -66,8 +66,6 @@ This combination is useful when:
 
 ---
 
-On first launch, you should run the program in **learning mode**. This mode generates a *MAC address whitelist*. 
-
 After that, you have two options:
 
 - *Standard mode:* The scanner will perform a simple comparison between the MAC addresses received in the ARP packets and those present in the list, detecting any anomalies. No attacks other than simple anomalous MAC addresses will be detected!
