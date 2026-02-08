@@ -30,6 +30,42 @@ Typically, eth0 for Ethernet or wlo1 for WiFi network interfaces.
 
 ---
 
+On first launch, you have two options to create the *MAC address whitelist*:
+
+1. **Active Scanning (Recommended)**: Run the program with the `--scan` flag to immediately discover all devices on your network:
+
+```bash
+sudo ./app <network_interface> --scan
+```
+
+This will use `arp-scan` to actively discover all devices on your local network and populate the whitelist immediately.
+
+2. **Learning Mode (Passive)**: Run the program in learning mode to passively build the whitelist as ARP packets are detected:
+
+```bash
+sudo ./app <network_interface> --learn
+```
+
+
+**Combining Both Methods:**
+
+You can use both `--scan` and `--learn` together for comprehensive coverage:
+
+```bash
+sudo ./app <network_interface> --scan --learn
+```
+
+When both flags are used:
+1. **First (Active Scan)**: The program immediately performs an active scan using `arp-scan` to discover all devices currently on the network and adds them to the whitelist
+2. **Then (Passive Learning)**: The program continues running in learning mode, monitoring ARP traffic. Any NEW devices that appear on the network after the initial scan (devices that weren't found during the scan) will also be automatically added to the whitelist
+
+This combination is useful when:
+- You want to quickly populate the whitelist with all existing devices (via `--scan`)
+- You also want to automatically add any devices that join the network later while the program is running (via `--learn`)
+
+
+---
+
 On first launch, you should run the program in **learning mode**. This mode generates a *MAC address whitelist*. 
 
 After that, you have two options:

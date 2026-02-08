@@ -14,6 +14,7 @@
 
 #include "device_list.h"
 #include "logger.h"
+#include "network_scanner.h"
 #include "oui_record.h"
 #include "packet_queue.h"
 #include "tcolor.h"
@@ -24,6 +25,7 @@
 // Globals
 int LEARNING_MODE = 0;
 int AI_MODE = 0;
+int SCAN_MODE = 0;
 DeviceManager *net_manager = NULL;
 pcap_t *handle = NULL;
 PacketQueue packet_queue;
@@ -235,6 +237,8 @@ int main(int argc, char *argv[]) {
       LEARNING_MODE = 1;
     } else if (strcmp(argv[i], "-ia") == 0) {
       AI_MODE = 1;
+    } else if (strcmp(argv[i], "--scan") == 0) {
+      SCAN_MODE = 1;
     } else {
       if (device == NULL) {
         device = argv[i];
@@ -247,6 +251,15 @@ int main(int argc, char *argv[]) {
     logger_log(LOG_INFO, "Mode: AI/Async (High Performance)");
   else
     logger_log(LOG_INFO, "Mode: Standard (Synchronous)");
+
+  // Perform active network scan if --scan flag is set
+  if (SCAN_MODE) {
+    logger_log(LOG_INFO, "Active scan mode enabled");
+    int scanned = ns_scan_network(device, net_manager);
+    if (scanned < 0) {
+      logger_log(LOG_WARN, "Active scan failed, continuing with passive mode");
+    }
+  }
 
   if (pcap_lookupnet(device, &net, &mask, errbuf) == -1) {
     net = 0;
