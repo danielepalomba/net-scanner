@@ -1,96 +1,143 @@
-## NET-SCANNER
+# NET-SCANNER
 
-Designed primarily for Linux OS.
+A network security tool that monitors ARP traffic to detect anomalous behavior and potential attacks. Designed primarily for Linux OS.
 
-##### How to run (Standard or Learning mode)
+---
 
-```[bash]
+## Quick Start
+
+### 1. Build the Project
+
+```bash
 make
 ```
 
-```[bash]
-sudo ./app <network_interface> [--learn]
-```
+### 2. Find Your Network Interface
 
-##### How to run (AI-Driven)
-```[bash]
-    Start first ai-engine.py
-```
-```[bash]
-sudo ./app <network_interface> -ia
-```
-
-You can easily get the name of your network interface by running the command:
-
-```[bash]
+```bash
 ip a
 ```
 
-Typically, eth0 for Ethernet or wlo1 for WiFi network interfaces.
+Typically `eth0` for Ethernet or `wlo1` for WiFi.
 
----
+### 3. Create the Whitelist
 
-On first launch, you have two options to create the *MAC address whitelist*:
+Choose one of the following methods:
 
-1. **Active Scanning (Recommended)**: Run the program with the `--scan` flag to immediately discover all devices on your network:
-
+**Option A: Active Scanning (Recommended - Fast)**
 ```bash
 sudo ./app <network_interface> --scan
 ```
+Uses `arp-scan` to immediately discover all devices on your network.
 
-This will use `arp-scan` to actively discover all devices on your local network and populate the whitelist immediately.
-
-2. **Learning Mode (Passive)**: Run the program in learning mode to passively build the whitelist as ARP packets are detected:
-
+**Option B: Passive Learning (Slower)**
 ```bash
 sudo ./app <network_interface> --learn
 ```
+Waits for ARP traffic and builds the whitelist as devices are detected.
 
-
-**Combining Both Methods:**
-
-You can use both `--scan` and `--learn` together for comprehensive coverage:
-
+**Option C: Combined (Best of Both)**
 ```bash
 sudo ./app <network_interface> --scan --learn
 ```
+- **First**: Performs active scan to discover all current devices
+- **Then**: Continues in learning mode to add new devices that join later
 
-When both flags are used:
-1. **First (Active Scan)**: The program immediately performs an active scan using `arp-scan` to discover all devices currently on the network and adds them to the whitelist
-2. **Then (Passive Learning)**: The program continues running in learning mode, monitoring ARP traffic. Any NEW devices that appear on the network after the initial scan (devices that weren't found during the scan) will also be automatically added to the whitelist
+### 4. Run the Scanner
 
-This combination is useful when:
-- You want to quickly populate the whitelist with all existing devices (via `--scan`)
-- You also want to automatically add any devices that join the network later while the program is running (via `--learn`)
+Once you have a whitelist, run in one of these modes:
 
+**Standard Mode:**
+```bash
+sudo ./app <network_interface>
+```
+Detects unauthorized MAC addresses by comparing against the whitelist.
 
----
+**AI-Driven Mode:**
+```bash
+# Terminal 1: Start the AI engine
+python3 model/ai-engine.py
 
-After that, you have two options:
-
-- *Standard mode:* The scanner will perform a simple comparison between the MAC addresses received in the ARP packets and those present in the list, detecting any anomalies. No attacks other than simple anomalous MAC addresses will be detected!
-
-- *AI-Driven*: Once you've collected enough data and trained a sufficiently performant model on your network traffic, you can run the ai-engine.py script and then start the sniffer in AI mode. If the model has been trained well, it will be able to detect not only unknown MAC addresses, but also ARP flooding, massive scans with the *nmap* command, and MITM attacks.
-
-#### How to train the model?
-
-1. First of all you need to **generate a MAC address whitelist**. It is important that the model is trained only with trusted devices, otherwise it will think that ARP traffic from untrusted devices is normal. To do this, start the sniffer in learning mode and wait for all MAC addresses to be detected, you can also manually enter them into the whitelist if necessary.
-2. Once the list is generated, you're ready to start **collecting data on your network traffic**. To do so, run the collector.py script and then run the sniffer in AI mode. The longer the collector listens, the better the model generated.
-3. Once you have the data, run the trainer.py script, which will **train the model** and save it to a .pkl file.
-4. You are **ready**, start the ai-engine and then the sniffer in ai-mode, any anomalies will be reported to you.
+# Terminal 2: Start the scanner
+sudo ./app <network_interface> -ia
+```
+Detects unknown MAC addresses, ARP flooding, network scans, and MITM attacks.
 
 ---
 
-![GUI_EXAMPLE](img/gui.png)
+## Operating Modes
+
+### Standard Mode
+Simple comparison between detected MAC addresses and the whitelist. Alerts on any unknown devices.
+
+**Limitations**: Only detects unauthorized MAC addresses, not sophisticated attacks.
+
+### AI-Driven Mode
+Uses machine learning to detect:
+- Unknown MAC addresses
+- ARP flooding attacks
+- Network scanning (e.g., nmap)
+- Man-in-the-Middle (MITM) attacks
+
+**Requirement**: Must train the model first (see below).
 
 ---
-*N.B. This is a project created purely for learning purposes; it's not a precise tool, and there may be errors. If you find any, please let me know :)*
 
+## Training the AI Model
 
+> **Important**: Train the model only with trusted devices to avoid false negatives.
 
+### Step 1: Generate Whitelist
+```bash
+sudo ./app <network_interface> --scan --learn
+```
+Let it run until all trusted devices are detected. You can also manually add MAC addresses to `whitelist.txt`.
 
+### Step 2: Collect Traffic Data
+```bash
+# Terminal 1: Start data collector
+python3 model/collector.py
 
+# Terminal 2: Run scanner in AI mode
+sudo ./app <network_interface> -ia
+```
+Let it collect data for as long as possible (longer = better model).
 
+### Step 3: Train the Model
+```bash
+python3 model/trainer.py
+```
+This creates a `.pkl` model file.
 
+### Step 4: Start Detection
+```bash
+# Terminal 1
+python3 model/ai-engine.py
 
+# Terminal 2
+sudo ./app <network_interface> -ia
+```
 
+---
+
+## Command-Line Flags Summary
+
+| Flag | Description |
+|------|-------------|
+| `--scan` | Actively scan network to discover devices (uses arp-scan) |
+| `--learn` | Passively learn new devices from ARP traffic |
+| `-ia` | Run in AI mode (requires ai-engine.py running) |
+
+Flags can be combined: `--scan --learn`, `--scan -ia`, etc.
+
+---
+
+## Screenshot
+
+![GUI Example](img/gui.png)
+
+---
+
+## Disclaimer
+
+*This is a learning project and not a production-ready security tool. There may be errors or limitations. Feedback welcome!*
