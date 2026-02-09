@@ -37,48 +37,140 @@ class AIEngineGUI(tk.Tk):
         self.after(100, self.process_queue)
 
     def setup_ui(self):
-        # Header
-        header_frame = tk.Frame(self, bg="#2c3e50", height=50)
+        # Modern color scheme
+        bg_dark = "#1e1e2e"
+        bg_darker = "#11111b"
+        accent_blue = "#89b4fa"
+        accent_purple = "#cba6f7"
+        text_light = "#cdd6f4"
+        text_muted = "#a6adc8"
+        success_bg = "#a6e3a1"
+        warning_bg = "#fab387"
+        error_bg = "#f38ba8"
+        
+        # Configure main window
+        self.configure(bg=bg_dark)
+        
+        # Modern gradient-style header
+        header_frame = tk.Frame(self, bg=accent_purple, height=70)
         header_frame.pack(fill=tk.X)
-        header_label = tk.Label(header_frame, text="Net-Scanner AI Monitor", 
-                                font=("Helvetica", 16, "bold"), bg="#2c3e50", fg="white")
-        header_label.pack(pady=10)
+        header_frame.pack_propagate(False)
+        
+        header_label = tk.Label(
+            header_frame, 
+            text="Net-Scanner AI Monitor", 
+            font=("Segoe UI", 20, "bold"), 
+            bg=accent_purple, 
+            fg="white"
+        )
+        header_label.pack(pady=20)
         
         # Status Bar
         self.status_var = tk.StringVar()
         self.status_var.set("Status: Stopped")
-        status_label = tk.Label(self, textvariable=self.status_var, relief=tk.SUNKEN, anchor="w")
+        status_label = tk.Label(
+            self, 
+            textvariable=self.status_var, 
+            relief=tk.FLAT, 
+            anchor="w",
+            bg=bg_darker,
+            fg=text_light,
+            font=("Segoe UI", 10),
+            padx=10,
+            pady=5
+        )
         status_label.pack(side=tk.BOTTOM, fill=tk.X)
         
-        # Main Area
-        main_frame = tk.Frame(self)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Main Area with dark background
+        main_frame = tk.Frame(self, bg=bg_dark)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
-        # Stats Panel
-        stats_frame = tk.LabelFrame(main_frame, text="Statistics", padx=10, pady=10)
-        stats_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 10))
+        # Stats Panel - Modern card style
+        stats_frame = tk.Frame(main_frame, bg=bg_dark)
+        stats_frame.pack(side=tk.TOP, fill=tk.X, pady=(0, 15))
         
-        self.lbl_packets = tk.Label(stats_frame, text="Total Packets: 0", font=("Helvetica", 10))
-        self.lbl_packets.pack(side=tk.LEFT, padx=20)
+        # Packet Count Card
+        packet_card = tk.Frame(stats_frame, bg=bg_darker, relief=tk.FLAT, bd=0)
+        packet_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
         
-        self.lbl_anomalies = tk.Label(stats_frame, text="Anomalies Detected: 0", font=("Helvetica", 10), fg="red")
-        self.lbl_anomalies.pack(side=tk.LEFT, padx=20)
+        packet_title = tk.Label(
+            packet_card, 
+            text="TOTAL PACKETS", 
+            font=("Segoe UI", 9), 
+            bg=bg_darker, 
+            fg=text_muted
+        )
+        packet_title.pack(pady=(10, 5), padx=15, anchor="w")
+        
+        self.lbl_packets = tk.Label(
+            packet_card, 
+            text="0", 
+            font=("Segoe UI", 24, "bold"), 
+            bg=bg_darker, 
+            fg=accent_blue
+        )
+        self.lbl_packets.pack(pady=(0, 10), padx=15, anchor="w")
+        
+        # Anomaly Count Card
+        anomaly_card = tk.Frame(stats_frame, bg=bg_darker, relief=tk.FLAT, bd=0)
+        anomaly_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        anomaly_title = tk.Label(
+            anomaly_card, 
+            text="ANOMALIES DETECTED", 
+            font=("Segoe UI", 9), 
+            bg=bg_darker, 
+            fg=text_muted
+        )
+        anomaly_title.pack(pady=(10, 5), padx=15, anchor="w")
+        
+        self.lbl_anomalies = tk.Label(
+            anomaly_card, 
+            text="0", 
+            font=("Segoe UI", 24, "bold"), 
+            bg=bg_darker, 
+            fg=error_bg
+        )
+        self.lbl_anomalies.pack(pady=(0, 10), padx=15, anchor="w")
         
         self.packet_count = 0
         self.anomaly_count = 0
         
-        # Logs
-        log_frame = tk.LabelFrame(main_frame, text="Event Log")
+        # Logs - Modern style with larger font
+        log_frame = tk.Frame(main_frame, bg=bg_darker, relief=tk.FLAT)
         log_frame.pack(fill=tk.BOTH, expand=True)
         
-        self.log_area = scrolledtext.ScrolledText(log_frame, state='disabled', font=("Consolas", 10))
-        self.log_area.pack(fill=tk.BOTH, expand=True)
+        log_title = tk.Label(
+            log_frame,
+            text="Event Log",
+            font=("Segoe UI", 11, "bold"),
+            bg=bg_darker,
+            fg=text_light,
+            anchor="w"
+        )
+        log_title.pack(fill=tk.X, padx=15, pady=(10, 5))
         
-        # Tags for coloring
-        self.log_area.tag_config("INFO", foreground="green")
-        self.log_area.tag_config("WARN", foreground="#f39c12")
-        self.log_area.tag_config("ERR", foreground="red", background="#fadbd8")
-        self.log_area.tag_config("NORMAL", foreground="black")
+        # Scrolled text with larger, more readable font
+        self.log_area = scrolledtext.ScrolledText(
+            log_frame, 
+            state='disabled', 
+            font=("Consolas", 12),  # Increased from 10 to 12
+            bg="#181825",
+            fg=text_light,
+            relief=tk.FLAT,
+            padx=10,
+            pady=10,
+            spacing1=2,  # Add spacing before each line
+            spacing3=2,  # Add spacing after each line
+            wrap=tk.WORD
+        )
+        self.log_area.pack(fill=tk.BOTH, expand=True, padx=15, pady=(0, 15))
+        
+        # Enhanced tags for better readability with backgrounds
+        self.log_area.tag_config("INFO", foreground=success_bg, font=("Consolas", 12, "bold"))
+        self.log_area.tag_config("WARN", foreground=warning_bg, font=("Consolas", 12, "bold"))
+        self.log_area.tag_config("ERR", foreground=error_bg, background="#3d1e21", font=("Consolas", 12, "bold"))
+        self.log_area.tag_config("NORMAL", foreground=text_light)
 
     def load_model(self):
         try:
@@ -103,7 +195,7 @@ class AIEngineGUI(tk.Tk):
                 
                 # Update stats if needed
                 self.lbl_packets.config(text=f"Total Packets: {self.packet_count}")
-                self.lbl_anomalies.config(text=f"Anomalies Detected: {self.anomaly_count}")
+                self.lbl_anomalies.config(text=f"Detected: {self.anomaly_count}")
         except queue.Empty:
             pass
         finally:
